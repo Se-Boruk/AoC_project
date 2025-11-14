@@ -107,11 +107,11 @@ class Custom_DataSet_Manager():
     
         def extract_features(dataset):
             rows = []
-            c = 0
+            #c = 0
             for img_obj in tqdm(dataset):
-                c+=1
-                if c >1000:
-                    break
+                #c+=1
+                #if c >1000:
+                    #break
     
                 feature_dict = {}
                 feature_dict['label'] = img_obj['style']
