@@ -1,0 +1,50 @@
+1. Przygotowanie i Preprocessing Danych - uporządkowanie, normalizacja i wstępna obróbka surowych obrazów z bazy WikiArt.
+    1.1.	Gromadzenie Danych:
+    Pobranie obrazów z bazy danych WikiArt i przypisanie im odpowiednich etykiet stylu (np. Kubizm, Impresjonizm).
+    1.2.	Czyszczenie i Filtrowanie:
+    Usunięcie uszkodzonych lub zbyt małych obrazów, które mogą zakłócić proces ekstrakcji cech.
+    1.3.	Normalizacja Rozmiaru:
+    Skalowanie wszystkich obrazów do jednolitego, rozsądnego rozmiaru (np. 256 x 256 pikseli) w celu ujednolicenia wektorów cech.
+    1.4.	Podział Danych:
+    Podział całego zbioru na trzy podzbiory: Treningowy (ok. 70%), Walidacyjny (ok. 15%) i Testowy(ok. 15%).
+
+
+2. Ekstrakcja Cech - przekształcenie obrazów w wektory numeryczne.
+    2.1. Ekstrakcja Cech Koloru:
+        * Konwersja obrazów do przestrzeni kolorów HSV .
+        * Obliczenie **Histogramów Kolorów** (dla każdej składowej przestrzeni).
+        * Identyfikacja **Dominujących Kolorów** za pomocą algorytmu k-średnich.
+    2.2. Ekstrakcja Cech Tekstury:
+        * Obliczenie deskryptorów LBP (Local Binary Pattern) w celu uchwycenia mikrostruktur i faktury pociągnięć pędzla.
+        * Zastosowanie Filtrów Gabora o różnych orientacjach i skalach.
+    2.3. Ekstrakcja Cech Kształtu i Krawędzi:
+        * Obliczenie HOG (Histogram of Oriented Gradients) w celu uchwycenia geometrycznej struktury i zarysów obiektów.
+        * Analiza gęstości i charakterystyki krawędzi (np. za pomocą operatora Canny'ego).
+    2.4. Konkatenacja Wektorów Cech:
+        * Połączenie wszystkich wyekstrahowanych cech w jeden finalny wektor cech dla każdego obrazu.
+
+
+3. Redukcja Wymiarowości i Optymalizacja Danych
+    3.1. Zastosowanie PCA (Principal Component Analysis):
+        Użycie PCA na zbiorze treningowym w celu znalezienia najważniejszych składowych.
+    3.2. Dobór Optymalnej Wymiarowości:
+        Określenie, ile głównych składowych zachować, aby wyjaśnić satysfakcjonujący procent wariancji danych (np. 95%).
+    3.3. Transformacja Danych:
+        Zastosowanie tej samej transformacji PCA do wektorów cech zbioru walidacyjnego i testowego.
+
+4. Trening i Optymalizacja Klasyfikatora - Wybór i trenowanie modelu, który przypisze wektory cech do konkretnego stylu artystycznego.
+    4.1. Wybór Algorytmu:
+    Wdrożenie klasyfikatora SVM (Support Vector Machine) (lub ewentualnie kNN, ale pewnie zostaniemy przy SVM) za pomocą biblioteki `scikit-learn`.
+    4.2. Trening Modelu:
+    Wytrenowanie klasyfikatora na zredukowanych wektorach cech i etykietach ze zbioru treningowego.
+    4.3. Optymalizacja Hiperparametrów:
+    Wykorzystanie zbioru walidacyjnego do dostrojenia hiperparametrów modelu (np. parametr C i typ jądra dla SVM, k dla kNN) za pomocą metody Grid Search lub Random Search.
+    4.4. Wybór Modelu Końcowego: Zapisanie modelu z optymalnymi hiperparametrami.
+
+5. Ewaluacja i Porównanie Stylistyczne - Ocena wydajności finalnego algorytmu i implementacja funkcji porównawczej.
+    5.1. Ewaluacja Dokładności: Przeprowadzenie klasyfikacji na zbiorze testowym i obliczenie metryk np.: Dokładność (Accuracy), Macierz Pomyłek (Confusion Matrix), Precyzja i Czułość (Precision, Recall) dla każdej klasy.
+    5.2. Implementacja Porównania Stylistycznego: Stworzenie funkcji, która:
+        * Przyjmuje dwa obrazy (lub wektory cech).
+        * Oblicza Odległość Euklidesową (lub Cosinusową) między ich zredukowanymi wektorami cech.
+        * Zwraca wartość liczbową jako miarę podobieństwa stylistycznego.
+    5.3. Prezentacja Wyników: Opracowanie raportu z wizualizacjami (np. wykresy skuteczności, przykłady błędnych klasyfikacji, rankingi podobieństwa) itd. 
