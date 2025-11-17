@@ -18,6 +18,9 @@ sys.path.insert(0, DATABASE_FOLDER)
 from DataBase_Functions import Custom_DataSet_Manager, LabelEncoderDF, Prepare_data_from_features
 import Functions
 
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVC
 
 
 
@@ -75,36 +78,51 @@ x_val_p = pca.transform(x_val)
 x_test_p = pca.transform(x_test)
 
 ###################################################################
-# ( 3 ) Extracting features from image
+# ( 3 ) Training SVM
 ###################################################################
 
-print("SVM training")
-clf, scaler = Functions.train_svm(x_train_p, y_train,
-                                  C= 1.0
-                                  )
 
 
-#######################################
-#Evaluation (just realized about unnecessary val set for now. Keeping it to not split sets again)
 
-# Scale all sets using the trained scaler
-x_train_scaled = scaler.transform(x_train_p)
+print("SVM training (grid search, no CV)...")
+
+# 1) Fit scaler on train set
+scaler = StandardScaler()
+x_train_scaled = scaler.fit_transform(x_train_p)
 x_val_scaled   = scaler.transform(x_val_p)
 x_test_scaled  = scaler.transform(x_test_p)
 
+
+###############################
+#Training
+
+
+
+svc = SVC(C = 1, kernel = 'rbf', degree = 3, gamma = 'scale')
+
+# Fit on training data
+svc.fit(x_train_scaled, y_train)
+
 # Predict
-y_train_pred = clf.predict(x_train_scaled)
-y_val_pred   = clf.predict(x_val_scaled)
-y_test_pred  = clf.predict(x_test_scaled)
+y_train_pred = svc.predict(x_train_scaled)
+y_val_pred   = svc.predict(x_val_scaled)
+y_test_pred  = svc.predict(x_test_scaled)
 
-# Accuracy
+# Scores
+
 train_acc = accuracy_score(y_train, y_train_pred)
-val_acc   = accuracy_score(y_val, y_val_pred)
-test_acc  = accuracy_score(y_test, y_test_pred)
+val_acc = accuracy_score(y_val, y_val_pred)
+test_acc = accuracy_score(y_test, y_test_pred)
 
-print(f"Train Accuracy: {train_acc:.4f}")
-print(f"Validation Accuracy: {val_acc:.4f}")
-print(f"Test Accuracy: {test_acc:.4f}")
+print("Train acc: ", train_acc)
+print("Val acc: ", val_acc)
+print("Test acc: ", test_acc)
+
+
+
+
+
+
 
 
 
