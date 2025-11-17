@@ -8,6 +8,7 @@ __pycache__/*
 
 #Exclude these files from being ignored
 !/DataBase/DataBase_Functions.py
+!/DataBase/Feature_extraction_functions.py
 !/DataBase/Libraries.txt
 
 
