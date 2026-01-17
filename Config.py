@@ -11,15 +11,19 @@ DATABASE_FOLDER = os.path.join(PROJECT_ROOT, "DataBase")
 
 #Path to painintg dataset (for reconstruction)
 DATASET_PATH = os.path.join(DATABASE_FOLDER, "WikiArt")
+FULL_DATASET_PATH = os.path.join(DATASET_PATH, "datasets\\steubk\\wikiart\\versions\\1")
+
+#Path to processed data (after scaling and pca)
+PROCESSED_DATA_PATH = os.path.join(DATASET_PATH, "Data_scaled_PCA.pkl")
 
 #Name on hugging face (extraxted from link)
 # https://www.kaggle.com/datasets/steubk/wikiart
-DATASET_NAME = "Artificio/WikiArt"
+DATASET_NAME = "steubk/wikiart"
 
 ########################
 
 RANDOM_STATE = 111
 
-TRAIN_SPLIT = 0.7
-VAL_SPLIT = 0.15
+TRAIN_SPLIT = 0.75
+VAL_SPLIT = 0.1
 TEST_SPLIT = 0.15
