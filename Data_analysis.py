@@ -100,7 +100,7 @@ for i, (key, (classes, values)) in enumerate(Ordered_Data_dict.items()):
     plt.tight_layout()
     
     # 1% treshold line
-    plt.axhline(y=0.01, color='red', linestyle='--', linewidth=1.5, label='1% Threshold')
+    plt.axhline(y=0.025, color='red', linestyle='--', linewidth=1.5, label='1% Threshold')
     plt.legend()
     
     #nly show on bottom plot labels

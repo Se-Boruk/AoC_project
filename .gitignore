@@ -1,6 +1,7 @@
 # Ignore everything in these directories
 DataBase/*
 __pycache__/*
+models/*
 
 #Ignore these files
 #Some_file.py

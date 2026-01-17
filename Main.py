@@ -20,10 +20,10 @@ sys.path.insert(0, DATABASE_FOLDER)
 from DataBase_Functions import Custom_DataSet_Manager, LabelEncoderDF, Prepare_data_from_features
 import Functions
 
-import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
-
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     ###################################################################
@@ -104,44 +104,45 @@ if __name__ == '__main__':
                         'x_val': x_val_final,
                         'y_val': y_val,
                         'x_test': x_test_final,
-                        'y_test': y_test
+                        'y_test': y_test,
+                        'Label_encoder': Label_encoder
                         }
         #Save the file
         with open(PROCESSED_DATA_PATH, 'wb') as f:
             pickle.dump(Processed_data, f, protocol=pickle.HIGHEST_PROTOCOL)
             print("Scaled and PCA-reduced data saved to disk.")
         
+
+
+
+    ###################################################################
+    # ( 2.5 ) Create redced class dataset
+    ###################################################################
+
+    #Create reduced class dataset where we merge all classes below 2,5% count into one shared class
+    Processed_data_class_reduced = Functions.Reduce_Classes_by_Threshold(
+        Processed_data, 
+        threshold=0.025
+    )
     
     ###################################################################
-    # ( 3 ) Training SVM
+    # ( 3 ) Training SVM (full class)
     ###################################################################
     
-    print("\nStarting training the model...")
+    print("\nStarting training the full model...")
     
+    model_red = Functions.Train_and_Evaluate_Model(Processed_data=Processed_data,
+                                                    model_name="svm_nystroem_rbf.joblib",
+                                                    plot_save_name="SVM_full_scores.png",
+                                                    suptitle_prefix="SVM full class"
+                                                )
     
-    #SVM model
-    svc = SVC(C = 1, kernel = 'rbf', degree = 3, gamma = 'scale')
-    
-    # Fit on training data
-    svc.fit(x_train_scaled, y_train)
-    
-    # Predict
-    y_train_pred = svc.predict(x_train_scaled)
-    y_val_pred   = svc.predict(x_val_scaled)
-    y_test_pred  = svc.predict(x_test_scaled)
-    
-    # Scores
-    
-    train_acc = accuracy_score(y_train, y_train_pred)
-    val_acc = accuracy_score(y_val, y_val_pred)
-    test_acc = accuracy_score(y_test, y_test_pred)
-    
-    print("Train acc: ", train_acc)
-    print("Val acc: ", val_acc)
-    print("Test acc: ", test_acc)
-
-
-
+    print("\nStarting training the full model...")
+    model_red = Functions.Train_and_Evaluate_Model(Processed_data= Processed_data_class_reduced,
+                                                    model_name="svm_nystroem_rbf_reduced.joblib",
+                                                    plot_save_name="SVM_reduced_scores.png",
+                                                    suptitle_prefix="SVM class below 2.5% merged"
+                                                )
 
 
 

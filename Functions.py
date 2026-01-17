@@ -1,0 +1,158 @@
+from DataBase_Functions import LabelEncoderDF
+import os
+import joblib
+import matplotlib.pyplot as plt
+import numpy as np
+from sklearn.metrics import accuracy_score, confusion_matrix, ConfusionMatrixDisplay
+import pandas as pd
+from sklearn.svm import LinearSVC
+from sklearn.kernel_approximation import Nystroem
+from sklearn.pipeline import make_pipeline
+
+def Reduce_Classes_by_Threshold(Processed_data, threshold=0.025):
+    """
+    Reduces classes based strictly on y_train statistics.
+    Carries over all x and y splits to the new dictionary.
+    """
+    old_encoder = Processed_data['Label_encoder']
+    
+    # 1. Decode y_train to strings to calculate frequencies
+    y_train_str = pd.Series([old_encoder.int_to_label[i] for i in Processed_data['y_train']])
+    
+    # 2. Identify rare styles based ONLY on training counts
+    style_counts = y_train_str.value_counts(normalize=True)
+    rare_styles = style_counts[style_counts < threshold].index.tolist()
+    
+    print(f"Merging {len(rare_styles)} classes (< {threshold*100}% of Train) into 'Other_Styles'...")
+
+    # 3. Initialize the new Encoder (contiguous mapping)
+    Reduced_Encoder = LabelEncoderDF()
+
+    def process_split(split_ints):
+        """Helper to decode, merge, and re-encode a split."""
+        # Convert integers back to strings using the original mapping
+        s_str = pd.Series([old_encoder.int_to_label[i] for i in split_ints])
+        # Force styles below threshold into the 'Other' bucket
+        s_merged = s_str.apply(lambda x: "Other_Styles" if x in rare_styles else x)
+        # Map to new contiguous integers (0, 1, 2...)
+        return np.array([Reduced_Encoder.encode_label(s) for s in s_merged], dtype=np.int64)
+
+    # 4. Construct the complete dictionary
+    # We must explicitly include the 'x' features for val and test
+    Processed_data_class_reduced = {
+        'x_train': Processed_data['x_train'],
+        'y_train': process_split(Processed_data['y_train']),
+        
+        'x_val':   Processed_data['x_val'],  
+        'y_val':   process_split(Processed_data['y_val']),
+        
+        'x_test':  Processed_data['x_test'],
+        'y_test':  process_split(Processed_data['y_test']),
+        
+        'Label_encoder': Reduced_Encoder
+    }
+
+    print(f"Reduction complete. New class count: {len(Reduced_Encoder.label_to_int)}")
+    
+    return Processed_data_class_reduced
+
+
+
+
+def Train_and_Evaluate_Model(Processed_data,
+                             model_name="svm_rbf_nystroem.joblib", 
+                             model_folder="models", 
+                             plot_save_name="Confusion_Matrix.png", 
+                             suptitle_prefix="WikiArt Classification"):
+    """
+    Trains/Loads a Nystroem-approximated SVM and plots Train/Test confusion matrices.
+    """
+    
+    # 1. Setup paths
+    if not os.path.exists(model_folder):
+        os.makedirs(model_folder)
+    model_path = os.path.join(model_folder, model_name)
+    
+    # 2. Persistence: Load or Train
+    if os.path.exists(model_path):
+        print(f"Loading pre-trained model from {model_path}...")
+        clf = joblib.load(model_path)
+    else:
+        print(f"\nStarting training the model: {model_name}...")
+        
+        # SPIRIT: We use Nystroem to approximate the 'RBF' kernel.
+        # n_components=300 is a good balance for 57k samples.
+        # dual=False is mandatory for n_samples > n_features for speed.
+        
+        #calculate the % of keeping 
+        gamma_val = 1.0 / (Processed_data['x_train'].shape[1] * Processed_data['x_train'].var())
+        print("Gamma val: ", gamma_val)
+        clf = make_pipeline(
+            Nystroem(kernel='rbf', gamma = gamma_val , n_components=600, random_state=42),
+            LinearSVC(C=1, dual=False, max_iter=2000, verbose=True)
+        )
+        
+        # Fit on training data
+        clf.fit(Processed_data['x_train'], Processed_data['y_train'])
+        
+        # Save model
+        joblib.dump(clf, model_path)
+        print(f"Model saved to {model_path}")
+
+    # 3. Predict and Scores
+    y_train_pred = clf.predict(Processed_data['x_train'])
+    y_test_pred  = clf.predict(Processed_data['x_test'])
+    
+    train_acc = accuracy_score(Processed_data['y_train'], y_train_pred)
+    test_acc  = accuracy_score(Processed_data['y_test'], y_test_pred)
+    
+    print(f"\n{suptitle_prefix} Results:")
+    print(f"Train acc: {train_acc:.4f}")
+    print(f"Test acc:  {test_acc:.4f}")
+
+    # 4. Visualization
+    Label_encoder = Processed_data["Label_encoder"]
+    
+    print("\nGenerating Confusion Matrices...")
+    class_names = [Label_encoder.int_to_label[i] for i in range(len(Label_encoder.int_to_label))]
+
+    fig, axes = plt.subplots(1, 2, figsize=(28, 14))
+    
+    datasets = [
+        ("Train", Processed_data['y_train'], y_train_pred, train_acc),
+        ("Test", Processed_data['y_test'], y_test_pred, test_acc)
+    ]
+
+    for i, (name, y_true, y_pred, acc) in enumerate(datasets):
+        cm = confusion_matrix(y_true, y_pred)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
+        disp.plot(ax=axes[i], cmap='viridis', xticks_rotation=90, values_format='d')
+        axes[i].set_title(f"Confusion Matrix: {name} Set\nAccuracy: {acc:.2%}")
+
+    # Steerable suptitle
+    fig.suptitle(f"{suptitle_prefix}\n(Overall Test Accuracy: {test_acc:.2%})", fontsize=22, fontweight='bold')
+    
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig(plot_save_name, dpi=100, bbox_inches='tight')
+    
+    print(f"Plot saved to: {plot_save_name}")
+    plt.show()
+    
+    return clf
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
