@@ -410,15 +410,45 @@ def fractal_dimension(img, threshold=128):
     Estimate fractal dimension using box-counting method.
     Input: RGB uint8 (converted to grayscale)
     """
+    # 1. Convert to grayscale and binarize
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     Z = (gray > threshold).astype(int)
-    sizes = 2**np.arange(int(np.log2(min(Z.shape))), 1, -1)
+    
+    # 2. Ensure dimensions are even for the reshape logic
+    # Your reshape requires the image to be a multiple of the box sizes
+    # Since sizes are powers of 2, we crop to the nearest power of 2 or 
+    # ensure it's divisible by the largest size.
+    p = int(np.log2(min(Z.shape)))
+    n = 2**p
+    Z = Z[:n, :n] # Crop to largest possible square power of 2
+
+    # 3. Define box sizes (powers of 2)
+    sizes = 2**np.arange(p, 1, -1)
     counts = []
+    
     for size in sizes:
-        S = (Z.reshape(Z.shape[0]//size, size, -1, size).sum(axis=(1,3))>0).sum()
+        # Efficient box counting via reshaping
+        S = (Z.reshape(n//size, size, n//size, size).sum(axis=(1,3)) > 0).sum()
         counts.append(S)
-    coeffs = np.polyfit(np.log(sizes), np.log(counts), 1)
-    return -coeffs[0]
+    
+    # --- THE FIX ---
+    # Convert to numpy arrays for masking
+    counts = np.array(counts)
+    sizes = np.array(sizes)
+    
+    # 4. Filter: Only keep indices where counts > 0 to avoid log(0)
+    valid = counts > 0
+    if not np.any(valid) or len(counts[valid]) < 2:
+        return 0.0 # Return 0 if image is empty or not enough data for a fit
+        
+    # 5. Safe linear fit on log-log plot
+    coeffs = np.polyfit(np.log(sizes[valid]), np.log(counts[valid]), 1)
+    
+    # The fractal dimension is the negative slope
+    result = -coeffs[0]
+    
+    # Final safety check for SVM stability
+    return result if np.isfinite(result) else 0.0
 
 
 
