@@ -31,17 +31,30 @@ def extract_single_image_features(row_tuple):
 
         #Feature extraction
         ##################################
-        v_sym, h_sym = Fef.symmetry_scores_ssim(img) 
-        feature_dict.update({'vert_sym': v_sym, 'horiz_sym': h_sym})
         feature_dict['entropy'] = Fef.img_entropy(img, n_bins=64)
         feature_dict.update(Fef.color_moments(img))
         feature_dict.update(Fef.colorfulness_saturation(img))
         feature_dict.update(Fef.color_harmony_contrast(img))
-        feature_dict.update(Fef.contour_statistics(img))
+
+        feature_dict.update(Fef.lab_histogram(img))
+        
         feature_dict.update(Fef.haralick_features(img))
         feature_dict.update(Fef.gabor_features(img))
+
+        feature_dict['lbp_histogram'] = Fef.lbp_histogram(img)
+
+        feature_dict.update(Fef.wavelet_texture(img))
+
+        feature_dict.update(Fef.edge_statistics(img))
+        feature_dict.update(Fef.hog_stats(img))
+
+        feature_dict.update(Fef.depth_of_field_proxy(img)) # Głębia ostrości
+        feature_dict.update(Fef.rule_of_thirds_stats(img))
+
+        v_sym, h_sym = Fef.symmetry_scores_ssim(img) 
+        feature_dict.update({'vert_sym': v_sym, 'horiz_sym': h_sym})
+
         feature_dict.update(Fef.radial_spectral_summary(img))
-        feature_dict['fractal_dim'] = Fef.fractal_dimension(img)
         ##################################
         
         return feature_dict

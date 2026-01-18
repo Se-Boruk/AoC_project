@@ -88,8 +88,8 @@ def Train_and_Evaluate_Model(Processed_data,
         gamma_val = 1.0 / (Processed_data['x_train'].shape[1] * Processed_data['x_train'].var())
         print("Gamma val: ", gamma_val)
         clf = make_pipeline(
-            Nystroem(kernel='rbf', gamma = gamma_val , n_components=600, random_state=42),
-            LinearSVC(C=1, dual=False, max_iter=2000, verbose=True)
+            Nystroem(kernel='rbf', gamma = gamma_val , n_components=2000, random_state=42),
+            LinearSVC(C=10, class_weight='balanced', dual=False, max_iter=2000, verbose=True)
         )
         
         # Fit on training data

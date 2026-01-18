@@ -17,7 +17,7 @@ from Config import TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT, RANDOM_STATE
 ##########################################################################################
 #Move folder up to go to database folder to use manager from here
 sys.path.insert(0, DATABASE_FOLDER)
-from DataBase_Functions import Custom_DataSet_Manager, LabelEncoderDF, Prepare_data_from_features
+from DataBase.DataBase_Functions import Custom_DataSet_Manager, LabelEncoderDF, Prepare_data_from_features
 import Functions
 
 from sklearn.preprocessing import StandardScaler

@@ -232,10 +232,6 @@ def color_harmony_contrast(img, n_bins=32):
 
     return features
 
-
-
-
-
 def lbp_histogram(img, P=8, R=1):
     """
     Compute uniform Local Binary Pattern (LBP) histogram for an image.
@@ -450,8 +446,205 @@ def fractal_dimension(img, threshold=128):
     # Final safety check for SVM stability
     return result if np.isfinite(result) else 0.0
 
+############ NOWE #######################
+
+def hog_stats(img):
+    """
+    HOG normalnie zwraca tysiące cech. My policzymy statystyki z HOG,
+    aby uchwycić "kierunkowość" pociągnięć pędzla bez wysadzania wymiarowości.
+    """
+    if img.ndim == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = img.copy()
+
+    # Zmniejszamy obraz dla szybkości HOG (opcjonalne, ale zalecane dla SVM)
+    # HOG jest bardzo wolny na dużych obrazach 512x512
+    img_small = cv2.resize(gray, (128, 128))
+
+    # Obliczamy HOG
+    fd = hog(img_small, orientations=9, pixels_per_cell=(16, 16),
+             cells_per_block=(2, 2), visualize=False, feature_vector=True)
+    
+    # Zamiast zwracać cały wektor fd (który ma np. 2000 elementów), zwracamy jego statystyki
+    return {
+        'hog_mean': np.mean(fd),
+        'hog_std':  np.std(fd),
+        'hog_max':  np.max(fd),
+        'hog_kurtosis': np.mean((fd - np.mean(fd))**4) / (np.std(fd)**4 + 1e-6)
+    }
+
+def edge_statistics(img):
+    """
+    Zamiast szukać zamkniętych konturów (co nie działa w malarstwie),
+    liczymy statystyki krawędzi (Canny).
+    """
+    # Konwersja do szarości
+    if img.ndim == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = img.copy()
+        
+    # Detekcja krawędzi algorytmem Canny
+    # Parametry 50, 150 są standardowe, można eksperymentować
+    edges = cv2.Canny(gray, 50, 150)
+    
+    # Obliczamy gęstość krawędzi (ile % obrazu to krawędzie)
+    edge_density = np.mean(edges > 0)
+    
+    # Kierunkowość krawędzi (opcjonalnie, prosta wersja)
+    # Sobel X i Y
+    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+    sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    magnitude = np.sqrt(sobelx**2 + sobely**2)
+    
+    return {
+        'edge_density': edge_density,
+        'edge_magnitude_mean': np.mean(magnitude),
+        'edge_magnitude_std': np.std(magnitude)
+    }
+
+def lab_histogram(img):
+    """
+    Z artykułu Karayev et al.:
+    Joint histogram in CIELAB color space.
+    Używa 4 binów dla L, 14 dla a, 14 dla b.
+    """
+    # Konwersja do LAB
+    if img.ndim == 3:
+        lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+    else:
+        return {} # Obsługa błędów dla obrazów w skali szarości
+
+    # Obliczenie histogramu 3D
+    # ranges: L (0-256), a (0-256), b (0-256) w OpenCV
+    # bins: [4, 14, 14] zgodnie z artykułem
+    hist = cv2.calcHist([lab], [0, 1, 2], None, [4, 14, 14], [0, 256, 0, 256, 0, 256])
+    
+    # Normalizacja (L1 norm), aby suma wynosiła 1 (niezależnie od rozmiaru obrazu)
+    hist = cv2.normalize(hist, None).flatten()
+    
+    # Zwracamy jako słownik cech statystycznych histogramu
+    # (SVM nie przyjmie całego histogramu jeśli jest za duży, ale tutaj to 4*14*14 = 784 cechy)
+    # W Twoim przypadku lepiej zwrócić to jako listę wartości w słowniku
+    features = {}
+    for i, val in enumerate(hist):
+        features[f'lab_hist_{i}'] = val
+        
+    return features
+
+def wavelet_texture(img):
+    """
+    Z artykułu Datta et al.[cite: 1883, 1890]:
+    3-level Daubechies wavelet transform on HSV.
+    Sum of coefficients in HL, LH, HH bands.
+    """
+    import pywt
+    
+    if img.ndim == 3:
+        hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    else:
+        # Fallback dla grayscale
+        hsv = cv2.cvtColor(cv2.cvtColor(img, cv2.COLOR_GRAY2RGB), cv2.COLOR_RGB2HSV)
+        
+    features = {}
+    channels = ['H', 'S', 'V']
+    
+    # Dla każdego kanału
+    for i, chan_name in enumerate(channels):
+        c_data = hsv[:,:,i].astype(float)
+        
+        # 3-poziomowa dekompozycja falkowa używając falki Daubechies 'db2' (lub db1)
+        coeffs = pywt.wavedec2(c_data, 'db2', level=3)
+        
+        # coeffs[0] to przybliżenie (LL), coeffs[1..3] to detale (LH, HL, HH) na poziomach
+        # Datta sumuje współczynniki detali
+        
+        # Level 1 (najdrobniejsze detale) to ostatni element listy coeffs
+        # Level 3 (najgrubsze) to coeffs[1]
+        
+        total_energy = 0
+        for level in range(1, 4):
+            (LH, HL, HH) = coeffs[level]
+            # Energia pasma: suma wartości bezwzględnych
+            energy = np.sum(np.abs(LH)) + np.sum(np.abs(HL)) + np.sum(np.abs(HH))
+            features[f'wavelet_{chan_name}_L{level}'] = energy
+            total_energy += energy
+            
+        features[f'wavelet_{chan_name}_total'] = total_energy
+
+    return features
+
+def depth_of_field_proxy(img):
+    """
+    Inspirowane Datta et al.[cite: 230, 241, 242]:
+    Mierzy różnicę w ostrości między centrum a brzegami obrazu.
+    Wysoka wartość sugeruje, że obiekt w centrum jest ostry, a tło rozmyte (Macro/Portret).
+    """
+    if img.ndim == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = img.copy()
+
+    H, W = gray.shape
+    
+    # Detekcja krawędzi (Laplacian) jako miara "ostrości"
+    # Można też użyć falek (wavelets) jak w artykule, ale Laplacian jest szybszy
+    laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+    focus_map = np.abs(laplacian)
+    
+    # Definiujemy centrum (środkowe 50% powierzchni, czyli od 1/4 do 3/4 szerokości/wysokości)
+    # Datta [cite: 241] używa bloków M6, M7, M10, M11 w siatce 4x4, co daje dokładnie środek.
+    h_start, h_end = H // 4, 3 * H // 4
+    w_start, w_end = W // 4, 3 * W // 4
+    
+    center_focus = focus_map[h_start:h_end, w_start:w_end]
+    
+    # Obliczamy średnią energię krawędzi w centrum i na całym obrazie
+    mean_center = np.mean(center_focus)
+    mean_whole = np.mean(focus_map)
+    
+    # Unikamy dzielenia przez zero
+    if mean_whole == 0:
+        dof_ratio = 0.0
+    else:
+        dof_ratio = mean_center / mean_whole
+
+    return {'dof_ratio': dof_ratio}
 
 
+def rule_of_thirds_stats(img):
+    """
+    Inspirowane Datta et al.[cite: 151, 153, 157]:
+    Liczy średnie wartości HSV dla wewnętrznego obszaru "Zasady Trójpodziału".
+    Datta zauważył, że profesjonalne zdjęcia często mają unikalny rozkład barw w centrum.
+    """
+    if img.ndim != 3:
+        return {} # Wymaga koloru
+        
+    hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    H, W, _ = hsv.shape
+    
+    # Definiujemy obszar "Rule of Thirds" (środkowa 1/3 obrazu w pionie i poziomie)
+    # Zgodnie z  badamy obszar od X/3 do 2X/3.
+    h_start, h_end = H // 3, 2 * H // 3
+    w_start, w_end = W // 3, 2 * W // 3
+    
+    center_region = hsv[h_start:h_end, w_start:w_end, :]
+    whole_image = hsv
+    
+    feats = {}
+    for i, channel in enumerate(['H', 'S', 'V']):
+        # Średnia w centrum
+        center_mean = np.mean(center_region[:,:,i])
+        # Średnia całości
+        whole_mean = np.mean(whole_image[:,:,i])
+        
+        feats[f'rot_center_mean_{channel}'] = center_mean
+        # Różnica między centrum a resztą (kontrast kompozycyjny)
+        feats[f'rot_contrast_{channel}'] = center_mean - whole_mean
+
+    return feats
 
 
 
