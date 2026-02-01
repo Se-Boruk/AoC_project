@@ -5,6 +5,9 @@ from scipy.stats import skew
 from skimage.feature import local_binary_pattern
 from skimage.feature import graycomatrix, graycoprops
 from skimage.feature import hog
+from sklearn.cluster import MiniBatchKMeans
+import pickle
+import os
 
 
 
@@ -645,6 +648,195 @@ def rule_of_thirds_stats(img):
         feats[f'rot_contrast_{channel}'] = center_mean - whole_mean
 
     return feats
+
+def color_auto_correlogram(img, distance_k=[1, 3, 5, 7], n_bins=64):
+    """
+    Oblicza Auto-Korelogram Kolorów.
+    
+    Args:
+        img: Obraz BGR.
+        distance_k: Lista odległości (sąsiedztw) do sprawdzenia.
+        n_bins: Liczba kolorów po kwantyzacji (np. 64 dla formatu 4x4x4).
+    
+    Returns:
+        Słownik cech korelogramu.
+    """
+    # 1. Redukcja kolorów (Kwantyzacja)
+    # Dzielimy 256 wartości na mniej kubełków. Dla n_bins=64 mamy 4 poziomy na kanał (4*4*4=64)
+    # Zmniejszamy obraz dla szybkości, jeśli jest ogromny
+    if img.shape[0] > 600:
+        scale_percent = 600 / img.shape[0]
+        width = int(img.shape[1] * scale_percent)
+        height = int(img.shape[0] * scale_percent)
+        img = cv2.resize(img, (width, height))
+
+    # Konwersja na liczby całkowite dla łatwiejszego operowania kubełkami
+    # bins_per_channel = pierwiastek sześcienny z n_bins (dla 64 -> 4)
+    bins_per_channel = int(round(n_bins ** (1/3)))
+    div = 256 // bins_per_channel
+    
+    # Kwantyzacja: (B // div) * N^2 + (G // div) * N + (R // div)
+    quantized = (img // div).astype(np.int32)
+    # Tworzymy mapę indeksów kolorów (0..63)
+    color_indices = quantized[:,:,0] * (bins_per_channel**2) + \
+                    quantized[:,:,1] * bins_per_channel + \
+                    quantized[:,:,2]
+
+    features = {}
+    
+    # Całkowita liczba pikseli
+    total_pixels = img.shape[0] * img.shape[1]
+
+    # Dla każdej odległości k
+    for k in distance_k:
+        count_matrix = np.zeros(n_bins, dtype=np.float32)
+        
+        # Aby przyspieszyć, nie robimy pętli po pikselach, tylko przesuwamy obraz (roll)
+        # Sprawdzamy 8 sąsiadów w odległości k (uproszczona wersja - ramka)
+        
+        # Lista przesunięć (dy, dx) dla odległości k
+        shifts = [
+            (-k, -k), (-k, 0), (-k, k),
+            (0, -k),           (0, k),
+            (k, -k),  (k, 0),  (k, k)
+        ]
+        
+        valid_neighbors = 0
+        
+        for dy, dx in shifts:
+            # Przesuwamy obraz o wektor (dy, dx)
+            shifted = np.roll(color_indices, shift=(dy, dx), axis=(0, 1))
+            
+            # Porównujemy: gdzie pixel == przesunięty pixel?
+            # (Uwaga: np.roll zawija krawędzie, co jest akceptowalnym błędem przy dużych obrazach,
+            #  dla idealnej precyzji należałoby maskować krawędzie)
+            matches = (color_indices == shifted)
+            
+            # Zliczamy wystąpienia dla każdego koloru
+            # Używamy np.bincount dla szybkości
+            # matches.ravel() to maska boolowska, mnożymy przez indeksy+1 (żeby 0 nie zniknęło), potem odejmujemy
+            matched_colors = color_indices[matches]
+            if len(matched_colors) > 0:
+                counts = np.bincount(matched_colors, minlength=n_bins)
+                count_matrix += counts
+                
+        # Normalizacja
+        # Dzielimy przez całkowitą liczbę pikseli, aby uniezależnić od rozmiaru obrazu
+        if count_matrix.sum() > 0:
+             count_matrix /= count_matrix.sum()
+
+        # Zapis do słownika
+        for i, val in enumerate(count_matrix):
+            # Zapisujemy tylko niezerowe lub istotne wartości, żeby nie zapchać pamięci 
+            # (opcjonalnie można zapisać wszystkie)
+            features[f'correlogram_k{k}_bin{i}'] = val
+
+    return features
+
+class BoVW_Manager:
+    """
+    Klasa do zarządzania podejściem Bag of Visual Words.
+    Wymaga 'nauczenia' słownika przed użyciem do ekstrakcji cech z pojedynczych obrazów.
+    """
+    def __init__(self, n_clusters=500, random_state=42):
+        self.n_clusters = n_clusters
+        self.kmeans = None
+        # Używamy ORB (darmowy, szybki) zamiast SURF (patent/wolniejszy)
+        self.detector = cv2.ORB_create(nfeatures=1500)
+        self.random_state = random_state
+
+    def fit_vocabulary(self, image_paths_or_images, sample_size=1000):
+        """
+        Tworzy wizualny słownik na podstawie próbki obrazów.
+        
+        Args:
+            image_paths_or_images: Lista ścieżek do obrazów lub lista obrazów (numpy arrays).
+            sample_size: Ile obrazów losowo wybrać do budowy słownika (żeby nie liczyć na wszystkich).
+        """
+        descriptors_list = []
+        
+        # Jeżeli podano więcej obrazów niż sample_size, losujemy próbkę
+        if len(image_paths_or_images) > sample_size:
+            indices = np.random.choice(len(image_paths_or_images), sample_size, replace=False)
+            selection = [image_paths_or_images[i] for i in indices]
+        else:
+            selection = image_paths_or_images
+
+        print(f"BoVW: Generating vocabulary from {len(selection)} images...")
+
+        for item in selection:
+            # Obsługa: item może być ścieżką lub obrazem
+            if isinstance(item, str):
+                # Czytamy plik jako strumień bajtów (omija problem ścieżek UTF-8 w Windows)
+                stream = np.fromfile(item, dtype=np.uint8)
+                img = cv2.imdecode(stream, cv2.IMREAD_COLOR)
+            else:
+                img = item
+            
+            if img is None: continue
+
+            # Wykrywanie punktów i deskryptorów ORB
+            keypoints, descriptors = self.detector.detectAndCompute(img, None)
+            
+            if descriptors is not None:
+                descriptors_list.append(descriptors)
+
+        # Łączymy wszystkie deskryptory w jedną dużą macierz
+        if len(descriptors_list) > 0:
+            all_descriptors = np.vstack(descriptors_list)
+            # Konwersja na float32 jest wymagana przez K-Means w sklearn
+            all_descriptors = all_descriptors.astype(np.float32)
+            
+            print(f"BoVW: Clustering {all_descriptors.shape[0]} descriptors into {self.n_clusters} words...")
+            
+            # Klastrowanie (MiniBatch jest szybszy przy dużej ilości danych)
+            self.kmeans = MiniBatchKMeans(n_clusters=self.n_clusters, 
+                                          random_state=self.random_state, 
+                                          batch_size=1000,
+                                          n_init='auto')
+            self.kmeans.fit(all_descriptors)
+            print("BoVW: Vocabulary created.")
+        else:
+            print("BoVW Warning: No descriptors found in the sample set.")
+
+    def save_vocab(self, path):
+        with open(path, 'wb') as f:
+            pickle.dump(self.kmeans, f)
+
+    def load_vocab(self, path):
+        with open(path, 'rb') as f:
+            self.kmeans = pickle.load(f)
+            self.n_clusters = self.kmeans.n_clusters
+
+    def compute_bovw_histogram(self, img):
+        """
+        Oblicza znormalizowany histogram słów wizualnych dla jednego obrazu.
+        Ta funkcja pasuje do struktury feature_dict.
+        """
+        if self.kmeans is None:
+            raise ValueError("BoVW Vocabulary not fitted! Call fit_vocabulary or load_vocab first.")
+
+        keypoints, descriptors = self.detector.detectAndCompute(img, None)
+
+        # Inicjalizacja pustego histogramu
+        histogram = np.zeros(self.n_clusters, dtype=np.float32)
+
+        if descriptors is not None:
+            descriptors = descriptors.astype(np.float32)
+            # Znajdź najbliższe słowa wizualne dla deskryptorów obrazu
+            words = self.kmeans.predict(descriptors)
+            
+            # Zlicz wystąpienia
+            for w in words:
+                histogram[w] += 1
+            
+            # Normalizacja (L2 lub L1) - ważne dla SVM
+            norm = np.linalg.norm(histogram)
+            if norm > 0:
+                histogram /= norm
+
+        # Zwracamy jako słownik cech
+        return {f"bovw_{i}": val for i, val in enumerate(histogram)}
 
 
 
