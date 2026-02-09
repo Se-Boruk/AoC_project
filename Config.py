@@ -15,6 +15,7 @@ FULL_DATASET_PATH = os.path.join(DATASET_PATH, "datasets\\steubk\\wikiart\\versi
 
 #Path to processed data (after scaling and pca)
 PROCESSED_DATA_PATH = os.path.join(DATASET_PATH, "Data_scaled_PCA.pkl")
+NO_PCA_PROCESSED_DATA_PATH = os.path.join(DATASET_PATH, "Data_scaled_RBF.pkl")
 
 #Name on hugging face (extraxted from link)
 # https://www.kaggle.com/datasets/steubk/wikiart

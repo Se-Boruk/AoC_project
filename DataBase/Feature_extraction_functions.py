@@ -741,9 +741,26 @@ class BoVW_Manager:
     def __init__(self, n_clusters=500, random_state=42):
         self.n_clusters = n_clusters
         self.kmeans = None
+        self.n_features = 1500
         # Używamy ORB (darmowy, szybki) zamiast SURF (patent/wolniejszy)
         self.detector = cv2.ORB_create(nfeatures=1500)
         self.random_state = random_state
+
+    def __getstate__(self):
+        """Metoda wywoływana przed piklowaniem (wysłaniem do innego procesu)."""
+        state = self.__dict__.copy()
+        # Usuwamy obiekt cv2.ORB, bo nie da się go spiklować
+        if 'detector' in state:
+            del state['detector']
+        return state
+
+    def __setstate__(self, state):
+        """Metoda wywoływana przy odpakowywaniu (w nowym procesie)."""
+        self.__dict__.update(state)
+        # Odtwarzamy detektor na nowym rdzeniu procesora
+        # Używamy zapamiętanego n_features lub domyślnie 1500
+        n_feats = getattr(self, 'n_features', 1500)
+        self.detector = cv2.ORB_create(nfeatures=n_feats)
 
     def fit_vocabulary(self, image_paths_or_images, sample_size=1000):
         """

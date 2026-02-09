@@ -9,6 +9,7 @@ import os
 from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score
 import pickle
+import joblib
 
 from Config import DATABASE_FOLDER, DATASET_PATH, DATASET_NAME, FULL_DATASET_PATH, PROCESSED_DATA_PATH
 from Config import TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT, RANDOM_STATE
@@ -111,7 +112,9 @@ if __name__ == '__main__':
         x_val_final = pca.transform(x_val_scaled)
         x_test_final = pca.transform(x_test_scaled)
         
-    
+        #Saving models weights 
+        joblib.dump(scaler, 'models/scaler.joblib')
+        joblib.dump(pca, 'models/pca_transformer.joblib')
     
         #Data saving and managing
         Processed_data = {
