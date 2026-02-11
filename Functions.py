@@ -20,6 +20,7 @@ import time
 from sklearn.feature_selection import RFE, RFECV
 from sklearn.model_selection import cross_val_score
 from DataBase import Feature_extraction_functions as Fef
+import matplotlib.ticker as mtick
 
 
 def Drop_Rare_Classes(Processed_data, threshold=0.025):
@@ -318,7 +319,7 @@ def Get_5_Most_Similar_Images(new_image_vector, x_train, kmeans_model, train_clu
 
 
 
-def Plot_Similar_Images(target_path, similar_indices, Train_set):
+def Plot_Similar_Images(target_path, image_label, similar_indices, Train_set):
     """
     target_path: ścieżka do obrazu zapytania
     similar_indices: indeksy zwrócone przez funkcję Get_5_Most_Similar_Images
@@ -327,8 +328,9 @@ def Plot_Similar_Images(target_path, similar_indices, Train_set):
     fig, axes = plt.subplots(1, 6, figsize=(20, 5))
     
     # 1. Obraz oryginalny (Query)
+
     axes[0].imshow(Image.open(target_path))
-    axes[0].set_title("ORYGINAŁ")
+    axes[0].set_title(f"ORYGINAŁ \n({image_label})")
     axes[0].axis('off')
     
     # 2. Obrazy podobne
@@ -428,6 +430,7 @@ def Evaluate_Hierarchy_On_Full_Set(model, x_data, y_data, encoder, plot_title="M
     values = [top_1_acc, top_3_acc, top_5_acc]
     bars = ax[0].bar(metrics, values, color=['#1f77b4', '#ff7f0e', '#2ca02c'])
     ax[0].set_ylim(0, 1.0)
+    ax[0].yaxis.set_major_formatter(mtick.PercentFormatter(xmax=1.0))
     ax[0].set_title("Skuteczność Top-N")
     ax[0].bar_label(bars, fmt='{:.1%}')
     
@@ -437,7 +440,7 @@ def Evaluate_Hierarchy_On_Full_Set(model, x_data, y_data, encoder, plot_title="M
     ax[1].set_xticks(range(1, 21))
     ax[1].set_xlabel("Pozycja poprawnej etykiety w rankingu modelu")
     ax[1].set_ylabel("Liczba obrazów")
-    ax[1].set_title("Rozkład błędów (Gdzie ląduje prawda?)")
+    ax[1].set_title("Rozkład błędów")
     
     plt.suptitle(plot_title, fontsize=16)
     plt.tight_layout()
