@@ -30,15 +30,15 @@ Instead of using "black-box" AI, we used shallow learning to decode artistic sty
 These methods allows for good statisctical description of basic concepts, colors, objects which translate into the painting style.
 
 ## End Project pipeline (after initial experiments)
-- Data Preprocessing: Cleaning the WikiArt database and focusing on styles with enough data (over a 2.5% threshold).
+- **Data Preprocessing**: Cleaning the WikiArt database and focusing on styles with enough data (over a 2.5% threshold).
 
-- Feature Extraction: Running a parallel pipeline to extract features from images
+- **Feature Extraction**: Running a parallel pipeline to extract features from images
 
-- Optimization: Using RFE to rank features and PCA to condense the data while keeping 99% of the important info.
+- **Optimization**: Using RFE to rank features and PCA to condense the data while keeping 99% of the important info.
 
-- Model Training: Teaching an SVM classifier to recognize styles using Nystroem RBF kernel approximation.
+- **Model Training**: Teaching an SVM classifier to recognize styles using Nystroem RBF kernel approximation.
 
-- Testing: Measuring accuracy and building a tool to find similar-looking paintings
+- **Testing**: Measuring accuracy and building a tool to find similar-looking paintings
 
 
 ## Results
