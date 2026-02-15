@@ -66,6 +66,10 @@ The system identified the closest neighbours in this space to show which paintin
 
 <img src="https://github.com/Se-Boruk/AoC_project/blob/master/Visuals/Similar_imgs_2.jpg?raw=true" width="780">
 
+## Details
+
+To acces more information you can view the **report** or the **presentation** which are located in the **"Report"** folder
+
 ## Contributors
 **Sebastian Borukało**: Conceptualization, Methodology, Software, Validation, Formal Analysis, Investigation, Data Curation 
 
