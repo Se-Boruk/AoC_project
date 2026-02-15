@@ -9,10 +9,11 @@ from PIL import Image
 from sklearn.model_selection import train_test_split
 from concurrent.futures import ProcessPoolExecutor 
 
-import Feature_extraction_functions as Fef
+from DataBase import Feature_extraction_functions as Fef
+from functools import partial
 
 
-def extract_single_image_features(row_tuple):
+def extract_single_image_features(row_tuple, bovw_manager = None):
     """Worker function to process one image on one CPU core."""
     _, row = row_tuple
     try:
@@ -27,21 +28,40 @@ def extract_single_image_features(row_tuple):
             img = np.array(img_rgb, dtype=np.uint8)
 
         feature_dict = {'label': row['style']}
-        
 
         #Feature extraction
         ##################################
-        v_sym, h_sym = Fef.symmetry_scores_ssim(img) 
-        feature_dict.update({'vert_sym': v_sym, 'horiz_sym': h_sym})
+        if bovw_manager is not None:
+            # Obliczamy histogram słów wizualnych i dodajemy do słownika
+            feature_dict.update(bovw_manager.compute_bovw_histogram(img))
+
         feature_dict['entropy'] = Fef.img_entropy(img, n_bins=64)
         feature_dict.update(Fef.color_moments(img))
         feature_dict.update(Fef.colorfulness_saturation(img))
         feature_dict.update(Fef.color_harmony_contrast(img))
-        feature_dict.update(Fef.contour_statistics(img))
+
+        # feature_dict.update(Fef.lab_histogram(img))
+        
         feature_dict.update(Fef.haralick_features(img))
         feature_dict.update(Fef.gabor_features(img))
+
+        feature_dict['lbp_histogram'] = Fef.lbp_histogram(img)
+
+        feature_dict.update(Fef.wavelet_texture(img))
+
+        feature_dict.update(Fef.edge_statistics(img))
+        feature_dict.update(Fef.hog_stats(img))
+
+        feature_dict.update(Fef.depth_of_field_proxy(img)) # Głębia ostrości
+        feature_dict.update(Fef.rule_of_thirds_stats(img))
+
+        # v_sym, h_sym = Fef.symmetry_scores_ssim(img) 
+        # feature_dict.update({'vert_sym': v_sym, 'horiz_sym': h_sym})
+
         feature_dict.update(Fef.radial_spectral_summary(img))
-        feature_dict['fractal_dim'] = Fef.fractal_dimension(img)
+
+        # feature_dict.update(Fef.color_auto_correlogram(img))
+        
         ##################################
         
         return feature_dict
@@ -155,7 +175,22 @@ class Custom_DataSet_Manager():
                 return pd.read_pickle(df_train_file), pd.read_pickle(df_val_file), pd.read_pickle(df_test_file)
             
             train, val, test = self.load_dataset_from_disk(full_dataset_path)
-            
+            # bovw_path = "models/bovw_vocab.pkl"
+            # bovw_manager = Fef.BoVW_Manager(n_clusters=500)
+
+            # if os.path.exists(bovw_path):
+            #     print("Loading BoVW vocabulary inside Manager...")
+            #     bovw_manager.load_vocab(bovw_path)
+            # else:
+            #     print("Training BoVW vocabulary inside Manager...")
+            #     # ODNOSISZ SIĘ DO ZBIORU TRENINGOWEGO PRZEZ self.Train_set
+            #     train_paths = [os.path.join(full_dataset_path, p) for p in train['path'].tolist()]
+                
+            #     bovw_manager.fit_vocabulary(train_paths, sample_size=2000)
+                
+            #     if not os.path.exists("models"): os.makedirs("models")
+            #     bovw_manager.save_vocab(bovw_path)
+
             def run_parallel_extraction(df, desc):
                 # Check available cores
                 cores = os.cpu_count()
@@ -164,9 +199,12 @@ class Custom_DataSet_Manager():
                 print(f"Using {cores} cores")
                 
                 with ProcessPoolExecutor(max_workers=cores) as executor:
+                    
+                    worker_with_manager = partial(extract_single_image_features)
                     #Chunks of images per thread (batches)
+                    # extract_single_image_features
                     results = list(tqdm(
-                        executor.map(extract_single_image_features, df.iterrows(), chunksize=64), 
+                        executor.map(worker_with_manager, df.iterrows(), chunksize=64), 
                         total=len(df), 
                         desc=desc
                     ))
@@ -185,9 +223,8 @@ class Custom_DataSet_Manager():
                 f.write("features extracted")
             
             return df_train, df_val, df_test
-            
-            
-            
+
+              
 class LabelEncoderDF:
     def __init__(self):
         self.label_to_int = {}
@@ -242,6 +279,8 @@ def Prepare_data_from_features(df, label_col="label"):
     y = df[label_col].values.astype(np.int64)
 
     return X, y
+
+    
 
 
 

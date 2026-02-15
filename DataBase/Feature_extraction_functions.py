@@ -5,6 +5,9 @@ from scipy.stats import skew
 from skimage.feature import local_binary_pattern
 from skimage.feature import graycomatrix, graycoprops
 from skimage.feature import hog
+from sklearn.cluster import MiniBatchKMeans
+import pickle
+import os
 
 
 
@@ -232,10 +235,6 @@ def color_harmony_contrast(img, n_bins=32):
 
     return features
 
-
-
-
-
 def lbp_histogram(img, P=8, R=1):
     """
     Compute uniform Local Binary Pattern (LBP) histogram for an image.
@@ -450,8 +449,411 @@ def fractal_dimension(img, threshold=128):
     # Final safety check for SVM stability
     return result if np.isfinite(result) else 0.0
 
+############ NOWE #######################
+
+def hog_stats(img):
+    """
+    HOG normalnie zwraca tysiące cech. My policzymy statystyki z HOG,
+    aby uchwycić "kierunkowość" pociągnięć pędzla bez wysadzania wymiarowości.
+    """
+    if img.ndim == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = img.copy()
+
+    # Zmniejszamy obraz dla szybkości HOG (opcjonalne, ale zalecane dla SVM)
+    # HOG jest bardzo wolny na dużych obrazach 512x512
+    img_small = cv2.resize(gray, (128, 128))
+
+    # Obliczamy HOG
+    fd = hog(img_small, orientations=9, pixels_per_cell=(16, 16),
+             cells_per_block=(2, 2), visualize=False, feature_vector=True)
+    
+    # Zamiast zwracać cały wektor fd (który ma np. 2000 elementów), zwracamy jego statystyki
+    return {
+        'hog_mean': np.mean(fd),
+        'hog_std':  np.std(fd),
+        'hog_max':  np.max(fd),
+        'hog_kurtosis': np.mean((fd - np.mean(fd))**4) / (np.std(fd)**4 + 1e-6)
+    }
+
+def edge_statistics(img):
+    """
+    Zamiast szukać zamkniętych konturów (co nie działa w malarstwie),
+    liczymy statystyki krawędzi (Canny).
+    """
+    # Konwersja do szarości
+    if img.ndim == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = img.copy()
+        
+    # Detekcja krawędzi algorytmem Canny
+    # Parametry 50, 150 są standardowe, można eksperymentować
+    edges = cv2.Canny(gray, 50, 150)
+    
+    # Obliczamy gęstość krawędzi (ile % obrazu to krawędzie)
+    edge_density = np.mean(edges > 0)
+    
+    # Kierunkowość krawędzi (opcjonalnie, prosta wersja)
+    # Sobel X i Y
+    sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+    sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    magnitude = np.sqrt(sobelx**2 + sobely**2)
+    
+    return {
+        'edge_density': edge_density,
+        'edge_magnitude_mean': np.mean(magnitude),
+        'edge_magnitude_std': np.std(magnitude)
+    }
+
+def lab_histogram(img):
+    """
+    Z artykułu Karayev et al.:
+    Joint histogram in CIELAB color space.
+    Używa 4 binów dla L, 14 dla a, 14 dla b.
+    """
+    # Konwersja do LAB
+    if img.ndim == 3:
+        lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+    else:
+        return {} # Obsługa błędów dla obrazów w skali szarości
+
+    # Obliczenie histogramu 3D
+    # ranges: L (0-256), a (0-256), b (0-256) w OpenCV
+    # bins: [4, 14, 14] zgodnie z artykułem
+    hist = cv2.calcHist([lab], [0, 1, 2], None, [4, 14, 14], [0, 256, 0, 256, 0, 256])
+    
+    # Normalizacja (L1 norm), aby suma wynosiła 1 (niezależnie od rozmiaru obrazu)
+    hist = cv2.normalize(hist, None).flatten()
+    
+    # Zwracamy jako słownik cech statystycznych histogramu
+    # (SVM nie przyjmie całego histogramu jeśli jest za duży, ale tutaj to 4*14*14 = 784 cechy)
+    # W Twoim przypadku lepiej zwrócić to jako listę wartości w słowniku
+    features = {}
+    for i, val in enumerate(hist):
+        features[f'lab_hist_{i}'] = val
+        
+    return features
+
+def wavelet_texture(img):
+    """
+    Z artykułu Datta et al.[cite: 1883, 1890]:
+    3-level Daubechies wavelet transform on HSV.
+    Sum of coefficients in HL, LH, HH bands.
+    """
+    import pywt
+    
+    if img.ndim == 3:
+        hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    else:
+        # Fallback dla grayscale
+        hsv = cv2.cvtColor(cv2.cvtColor(img, cv2.COLOR_GRAY2RGB), cv2.COLOR_RGB2HSV)
+        
+    features = {}
+    channels = ['H', 'S', 'V']
+    
+    # Dla każdego kanału
+    for i, chan_name in enumerate(channels):
+        c_data = hsv[:,:,i].astype(float)
+        
+        # 3-poziomowa dekompozycja falkowa używając falki Daubechies 'db2' (lub db1)
+        coeffs = pywt.wavedec2(c_data, 'db2', level=3)
+        
+        # coeffs[0] to przybliżenie (LL), coeffs[1..3] to detale (LH, HL, HH) na poziomach
+        # Datta sumuje współczynniki detali
+        
+        # Level 1 (najdrobniejsze detale) to ostatni element listy coeffs
+        # Level 3 (najgrubsze) to coeffs[1]
+        
+        total_energy = 0
+        for level in range(1, 4):
+            (LH, HL, HH) = coeffs[level]
+            # Energia pasma: suma wartości bezwzględnych
+            energy = np.sum(np.abs(LH)) + np.sum(np.abs(HL)) + np.sum(np.abs(HH))
+            features[f'wavelet_{chan_name}_L{level}'] = energy
+            total_energy += energy
+            
+        features[f'wavelet_{chan_name}_total'] = total_energy
+
+    return features
+
+def depth_of_field_proxy(img):
+    """
+    Inspirowane Datta et al.[cite: 230, 241, 242]:
+    Mierzy różnicę w ostrości między centrum a brzegami obrazu.
+    Wysoka wartość sugeruje, że obiekt w centrum jest ostry, a tło rozmyte (Macro/Portret).
+    """
+    if img.ndim == 3:
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    else:
+        gray = img.copy()
+
+    H, W = gray.shape
+    
+    # Detekcja krawędzi (Laplacian) jako miara "ostrości"
+    # Można też użyć falek (wavelets) jak w artykule, ale Laplacian jest szybszy
+    laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+    focus_map = np.abs(laplacian)
+    
+    # Definiujemy centrum (środkowe 50% powierzchni, czyli od 1/4 do 3/4 szerokości/wysokości)
+    # Datta [cite: 241] używa bloków M6, M7, M10, M11 w siatce 4x4, co daje dokładnie środek.
+    h_start, h_end = H // 4, 3 * H // 4
+    w_start, w_end = W // 4, 3 * W // 4
+    
+    center_focus = focus_map[h_start:h_end, w_start:w_end]
+    
+    # Obliczamy średnią energię krawędzi w centrum i na całym obrazie
+    mean_center = np.mean(center_focus)
+    mean_whole = np.mean(focus_map)
+    
+    # Unikamy dzielenia przez zero
+    if mean_whole == 0:
+        dof_ratio = 0.0
+    else:
+        dof_ratio = mean_center / mean_whole
+
+    return {'dof_ratio': dof_ratio}
 
 
+def rule_of_thirds_stats(img):
+    """
+    Inspirowane Datta et al.[cite: 151, 153, 157]:
+    Liczy średnie wartości HSV dla wewnętrznego obszaru "Zasady Trójpodziału".
+    Datta zauważył, że profesjonalne zdjęcia często mają unikalny rozkład barw w centrum.
+    """
+    if img.ndim != 3:
+        return {} # Wymaga koloru
+        
+    hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    H, W, _ = hsv.shape
+    
+    # Definiujemy obszar "Rule of Thirds" (środkowa 1/3 obrazu w pionie i poziomie)
+    # Zgodnie z  badamy obszar od X/3 do 2X/3.
+    h_start, h_end = H // 3, 2 * H // 3
+    w_start, w_end = W // 3, 2 * W // 3
+    
+    center_region = hsv[h_start:h_end, w_start:w_end, :]
+    whole_image = hsv
+    
+    feats = {}
+    for i, channel in enumerate(['H', 'S', 'V']):
+        # Średnia w centrum
+        center_mean = np.mean(center_region[:,:,i])
+        # Średnia całości
+        whole_mean = np.mean(whole_image[:,:,i])
+        
+        feats[f'rot_center_mean_{channel}'] = center_mean
+        # Różnica między centrum a resztą (kontrast kompozycyjny)
+        feats[f'rot_contrast_{channel}'] = center_mean - whole_mean
+
+    return feats
+
+def color_auto_correlogram(img, distance_k=[1, 3, 5, 7], n_bins=64):
+    """
+    Oblicza Auto-Korelogram Kolorów.
+    
+    Args:
+        img: Obraz BGR.
+        distance_k: Lista odległości (sąsiedztw) do sprawdzenia.
+        n_bins: Liczba kolorów po kwantyzacji (np. 64 dla formatu 4x4x4).
+    
+    Returns:
+        Słownik cech korelogramu.
+    """
+    # 1. Redukcja kolorów (Kwantyzacja)
+    # Dzielimy 256 wartości na mniej kubełków. Dla n_bins=64 mamy 4 poziomy na kanał (4*4*4=64)
+    # Zmniejszamy obraz dla szybkości, jeśli jest ogromny
+    if img.shape[0] > 600:
+        scale_percent = 600 / img.shape[0]
+        width = int(img.shape[1] * scale_percent)
+        height = int(img.shape[0] * scale_percent)
+        img = cv2.resize(img, (width, height))
+
+    # Konwersja na liczby całkowite dla łatwiejszego operowania kubełkami
+    # bins_per_channel = pierwiastek sześcienny z n_bins (dla 64 -> 4)
+    bins_per_channel = int(round(n_bins ** (1/3)))
+    div = 256 // bins_per_channel
+    
+    # Kwantyzacja: (B // div) * N^2 + (G // div) * N + (R // div)
+    quantized = (img // div).astype(np.int32)
+    # Tworzymy mapę indeksów kolorów (0..63)
+    color_indices = quantized[:,:,0] * (bins_per_channel**2) + \
+                    quantized[:,:,1] * bins_per_channel + \
+                    quantized[:,:,2]
+
+    features = {}
+    
+    # Całkowita liczba pikseli
+    total_pixels = img.shape[0] * img.shape[1]
+
+    # Dla każdej odległości k
+    for k in distance_k:
+        count_matrix = np.zeros(n_bins, dtype=np.float32)
+        
+        # Aby przyspieszyć, nie robimy pętli po pikselach, tylko przesuwamy obraz (roll)
+        # Sprawdzamy 8 sąsiadów w odległości k (uproszczona wersja - ramka)
+        
+        # Lista przesunięć (dy, dx) dla odległości k
+        shifts = [
+            (-k, -k), (-k, 0), (-k, k),
+            (0, -k),           (0, k),
+            (k, -k),  (k, 0),  (k, k)
+        ]
+        
+        valid_neighbors = 0
+        
+        for dy, dx in shifts:
+            # Przesuwamy obraz o wektor (dy, dx)
+            shifted = np.roll(color_indices, shift=(dy, dx), axis=(0, 1))
+            
+            # Porównujemy: gdzie pixel == przesunięty pixel?
+            # (Uwaga: np.roll zawija krawędzie, co jest akceptowalnym błędem przy dużych obrazach,
+            #  dla idealnej precyzji należałoby maskować krawędzie)
+            matches = (color_indices == shifted)
+            
+            # Zliczamy wystąpienia dla każdego koloru
+            # Używamy np.bincount dla szybkości
+            # matches.ravel() to maska boolowska, mnożymy przez indeksy+1 (żeby 0 nie zniknęło), potem odejmujemy
+            matched_colors = color_indices[matches]
+            if len(matched_colors) > 0:
+                counts = np.bincount(matched_colors, minlength=n_bins)
+                count_matrix += counts
+                
+        # Normalizacja
+        # Dzielimy przez całkowitą liczbę pikseli, aby uniezależnić od rozmiaru obrazu
+        if count_matrix.sum() > 0:
+             count_matrix /= count_matrix.sum()
+
+        # Zapis do słownika
+        for i, val in enumerate(count_matrix):
+            # Zapisujemy tylko niezerowe lub istotne wartości, żeby nie zapchać pamięci 
+            # (opcjonalnie można zapisać wszystkie)
+            features[f'correlogram_k{k}_bin{i}'] = val
+
+    return features
+
+class BoVW_Manager:
+    """
+    Klasa do zarządzania podejściem Bag of Visual Words.
+    Wymaga 'nauczenia' słownika przed użyciem do ekstrakcji cech z pojedynczych obrazów.
+    """
+    def __init__(self, n_clusters=500, random_state=42):
+        self.n_clusters = n_clusters
+        self.kmeans = None
+        self.n_features = 1500
+        # Używamy ORB (darmowy, szybki) zamiast SURF (patent/wolniejszy)
+        self.detector = cv2.ORB_create(nfeatures=1500)
+        self.random_state = random_state
+
+    def __getstate__(self):
+        """Metoda wywoływana przed piklowaniem (wysłaniem do innego procesu)."""
+        state = self.__dict__.copy()
+        # Usuwamy obiekt cv2.ORB, bo nie da się go spiklować
+        if 'detector' in state:
+            del state['detector']
+        return state
+
+    def __setstate__(self, state):
+        """Metoda wywoływana przy odpakowywaniu (w nowym procesie)."""
+        self.__dict__.update(state)
+        # Odtwarzamy detektor na nowym rdzeniu procesora
+        # Używamy zapamiętanego n_features lub domyślnie 1500
+        n_feats = getattr(self, 'n_features', 1500)
+        self.detector = cv2.ORB_create(nfeatures=n_feats)
+
+    def fit_vocabulary(self, image_paths_or_images, sample_size=1000):
+        """
+        Tworzy wizualny słownik na podstawie próbki obrazów.
+        
+        Args:
+            image_paths_or_images: Lista ścieżek do obrazów lub lista obrazów (numpy arrays).
+            sample_size: Ile obrazów losowo wybrać do budowy słownika (żeby nie liczyć na wszystkich).
+        """
+        descriptors_list = []
+        
+        # Jeżeli podano więcej obrazów niż sample_size, losujemy próbkę
+        if len(image_paths_or_images) > sample_size:
+            indices = np.random.choice(len(image_paths_or_images), sample_size, replace=False)
+            selection = [image_paths_or_images[i] for i in indices]
+        else:
+            selection = image_paths_or_images
+
+        print(f"BoVW: Generating vocabulary from {len(selection)} images...")
+
+        for item in selection:
+            # Obsługa: item może być ścieżką lub obrazem
+            if isinstance(item, str):
+                # Czytamy plik jako strumień bajtów (omija problem ścieżek UTF-8 w Windows)
+                stream = np.fromfile(item, dtype=np.uint8)
+                img = cv2.imdecode(stream, cv2.IMREAD_COLOR)
+            else:
+                img = item
+            
+            if img is None: continue
+
+            # Wykrywanie punktów i deskryptorów ORB
+            keypoints, descriptors = self.detector.detectAndCompute(img, None)
+            
+            if descriptors is not None:
+                descriptors_list.append(descriptors)
+
+        # Łączymy wszystkie deskryptory w jedną dużą macierz
+        if len(descriptors_list) > 0:
+            all_descriptors = np.vstack(descriptors_list)
+            # Konwersja na float32 jest wymagana przez K-Means w sklearn
+            all_descriptors = all_descriptors.astype(np.float32)
+            
+            print(f"BoVW: Clustering {all_descriptors.shape[0]} descriptors into {self.n_clusters} words...")
+            
+            # Klastrowanie (MiniBatch jest szybszy przy dużej ilości danych)
+            self.kmeans = MiniBatchKMeans(n_clusters=self.n_clusters, 
+                                          random_state=self.random_state, 
+                                          batch_size=1000,
+                                          n_init='auto')
+            self.kmeans.fit(all_descriptors)
+            print("BoVW: Vocabulary created.")
+        else:
+            print("BoVW Warning: No descriptors found in the sample set.")
+
+    def save_vocab(self, path):
+        with open(path, 'wb') as f:
+            pickle.dump(self.kmeans, f)
+
+    def load_vocab(self, path):
+        with open(path, 'rb') as f:
+            self.kmeans = pickle.load(f)
+            self.n_clusters = self.kmeans.n_clusters
+
+    def compute_bovw_histogram(self, img):
+        """
+        Oblicza znormalizowany histogram słów wizualnych dla jednego obrazu.
+        Ta funkcja pasuje do struktury feature_dict.
+        """
+        if self.kmeans is None:
+            raise ValueError("BoVW Vocabulary not fitted! Call fit_vocabulary or load_vocab first.")
+
+        keypoints, descriptors = self.detector.detectAndCompute(img, None)
+
+        # Inicjalizacja pustego histogramu
+        histogram = np.zeros(self.n_clusters, dtype=np.float32)
+
+        if descriptors is not None:
+            descriptors = descriptors.astype(np.float32)
+            # Znajdź najbliższe słowa wizualne dla deskryptorów obrazu
+            words = self.kmeans.predict(descriptors)
+            
+            # Zlicz wystąpienia
+            for w in words:
+                histogram[w] += 1
+            
+            # Normalizacja (L2 lub L1) - ważne dla SVM
+            norm = np.linalg.norm(histogram)
+            if norm > 0:
+                histogram /= norm
+
+        # Zwracamy jako słownik cech
+        return {f"bovw_{i}": val for i, val in enumerate(histogram)}
 
 
 
