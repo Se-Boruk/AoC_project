@@ -2,6 +2,7 @@
 DataBase/*
 __pycache__/*
 models/*
+.vscode/*
 
 #Ignore these files
 #Some_file.py

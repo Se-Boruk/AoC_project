@@ -4,8 +4,7 @@
 
 #Basic libs
 import sys
-from sklearn.decomposition import PCA
-from sklearn.metrics import accuracy_score
+
 
 from Config import DATABASE_FOLDER, DATASET_PATH, DATASET_NAME, FULL_DATASET_PATH
 from Config import TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT, RANDOM_STATE
@@ -15,12 +14,9 @@ from Config import TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT, RANDOM_STATE
 ##########################################################################################
 #Move folder up to go to database folder to use manager from here
 sys.path.insert(0, DATABASE_FOLDER)
-from DataBase_Functions import Custom_DataSet_Manager, LabelEncoderDF, Prepare_data_from_features
-import Functions
+from DataBase_Functions import Custom_DataSet_Manager
 
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
+
 import numpy as np
 import matplotlib.pyplot as plt
 

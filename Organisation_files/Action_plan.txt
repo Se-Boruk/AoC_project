@@ -1,0 +1,110 @@
+###############################################################################################################
+Notatka zawiera szczegółowy schemat naszego pipeline (użyte algorytmy, ładowanie danych, manipulacja danymi itp.)
+Schemat został nieco zmieniony na sam koniec projektu, jednak większość przedstawionych założeń pozostała taka sama.
+
+---------------------------------------------------------------------------------------------------------------
+
+This note contains the detailed scheme of our pipeline (used algorithms, loading data, data manipulation etc.)
+It was slightly changed at the end of the project but main principles remain the same.
+###############################################################################################################
+
+1. Przygotowanie i Preprocessing Danych - uporządkowanie, normalizacja i wstępna obróbka surowych obrazów z bazy WikiArt.
+    1.1.	Gromadzenie Danych:
+    Pobranie obrazów z bazy danych WikiArt i przypisanie im odpowiednich etykiet stylu (np. Kubizm, Impresjonizm).
+    1.2.	Czyszczenie i Filtrowanie:
+    Usunięcie uszkodzonych lub zbyt małych obrazów, które mogą zakłócić proces ekstrakcji cech.
+    1.3.	Sprawdzić czy wymagana jest Normalizacja Rozmiaru: 
+    Skalowanie wszystkich obrazów do jednolitego, rozsądnego rozmiaru (np. 256 x 256 pikseli) w celu ujednolicenia wektorów cech.
+    1.4.	Podział Danych:
+    Podział całego zbioru na trzy podzbiory: Treningowy (ok. 70%), Walidacyjny (ok. 15%) i Testowy(ok. 15%).
+
+
+2. Ekstrakcja Cech - przekształcenie obrazów w wektory numeryczne.
+   ! 2.1. Ekstrakcja Cech Koloru:                                 (tylko propozycje/mozliwosci)
+        * Konwersja obrazów do przestrzeni kolorów HSV .
+        * Obliczenie **Histogramów Kolorów** (dla każdej składowej przestrzeni).
+        * Identyfikacja **Dominujących Kolorów** za pomocą algorytmu k-średnich.
+   ! 2.2. Ekstrakcja Cech Tekstury:                                (tylko propozycje/mozliwosci)
+        * Obliczenie deskryptorów LBP (Local Binary Pattern) w celu uchwycenia mikrostruktur i faktury pociągnięć pędzla.
+        * Zastosowanie Filtrów Gabora o różnych orientacjach i skalach.
+   ! 2.3. Ekstrakcja Cech Kształtu i Krawędzi:                     (tylko propozycje/mozliwosci)
+        * Obliczenie HOG (Histogram of Oriented Gradients) w celu uchwycenia geometrycznej struktury i zarysów obiektów.
+        * Analiza gęstości i charakterystyki krawędzi (np. za pomocą operatora Canny'ego).
+    2.4. Konkatenacja Wektorów Cech:
+        * Połączenie wszystkich wyekstrahowanych cech w jeden finalny wektor cech dla każdego obrazu.
+
+
+3. Redukcja Wymiarowości i Optymalizacja Danych
+    3.1. Zastosowanie PCA (Principal Component Analysis):
+        Użycie PCA na zbiorze treningowym w celu znalezienia najważniejszych składowych.
+    3.2. Dobór Optymalnej Wymiarowości:
+        Określenie, ile głównych składowych zachować, aby wyjaśnić satysfakcjonujący procent wariancji danych (np. 95/99%).
+    3.3. Transformacja Danych:
+        Zastosowanie tej samej transformacji PCA do wektorów cech zbioru walidacyjnego i testowego.
+
+4. Trening i Optymalizacja Klasyfikatora - Wybór i trenowanie modelu, który przypisze wektory cech do konkretnego stylu artystycznego.
+    4.1. Wybór Algorytmu:
+    Wdrożenie klasyfikatora SVM (Support Vector Machine) za pomocą biblioteki `scikit-learn`.
+    4.2. Trening Modelu:
+    Wytrenowanie klasyfikatora na zredukowanych wektorach cech i etykietach ze zbioru treningowego.
+    4.3. Optymalizacja Hiperparametrów:
+    Wykorzystanie zbioru walidacyjnego do dostrojenia hiperparametrów modelu (np. parametr C i typ jądra dla SVM) za pomocą metody `Grid Search` lub Random Search.
+    4.4. Wybór Modelu Końcowego: Zapisanie modelu z optymalnymi hiperparametrami.
+
+5. Ewaluacja i Porównanie Stylistyczne - Ocena wydajności finalnego algorytmu i implementacja funkcji porównawczej.
+    5.1. Ewaluacja Dokładności: Przeprowadzenie klasyfikacji na zbiorze testowym i obliczenie metryk np.: Dokładność (Accuracy), Macierz Pomyłek (Confusion                  Matrix), Precyzja i Czułość (Precision, Recall) dla każdej klasy.
+    5.2. Implementacja Porównania Stylistycznego: Stworzenie funkcji, która:
+        * Przyjmuje dwa obrazy (lub wektory cech).
+        * Oblicza Odległość Euklidesową (lub Cosinusową) między ich zredukowanymi wektorami cech.
+        * Zwraca wartość liczbową jako miarę podobieństwa stylistycznego.
+    5.3. Prezentacja Wyników: Opracowanie raportu z wizualizacjami (np. wykresy skuteczności, przykłady błędnych klasyfikacji, rankingi podobieństwa) itd. 
+
+---------------------------------------------------------------------------------------------------------------
+1. Data Preparation and Preprocessing - organization, normalization and initial processing of raw images from the WikiArt database.
+	1.1. Data Collection: 
+		Downloading images from the WikiArt database and assigning appropriate style labels (e.g., Cubism, Impressionism).
+	1.2. Cleaning and Filtering:
+		Removing corrupted or too small images that may disrupt the feature extraction process.
+	1.3. Check if Size Normalization is required:
+		Scaling all images to a uniform, reasonable size (e.g., 256 x 256 pixels) to unify feature vectors.
+	1.4. Data Splitting:
+		Splitting the entire set into three subsets: Training (approx. 70%), Validation (approx. 15%), and Test (approx. 15%).
+
+2. Feature Extraction - transforming images into numerical vectors.
+	2.1. Color Feature Extraction: (proposals/possibilities only)
+		Conversion of images to the HSV color space.
+		Calculation of Color Histograms (for each space component).
+		Identification of Dominant Colors using the k-means algorithm.
+	2.2. Texture Feature Extraction: (proposals/possibilities only)
+		Calculation of LBP (Local Binary Pattern) descriptors to capture microstructures and brushstroke texture.
+		Application of Gabor Filters at different orientations and scales.
+	2.3. Shape and Edge Feature Extraction: (proposals/possibilities only)
+		Calculation of HOG (Histogram of Oriented Gradients) to capture geometric structure and object outlines.
+		Analysis of edge density and characteristics (e.g., using the Canny operator).
+	2.4. Feature Vector Concatenation:
+		Combining all extracted features into one final feature vector for each image.
+
+3. Dimensionality Reduction and Data Optimization
+	3.1. Application of PCA (Principal Component Analysis):
+		Using PCA on the training set to find the most important components.
+	3.2. Selection of Optimal Dimensionality:
+		Determining how many principal components to keep to explain a satisfactory percentage of data variance (e.g., 95/99%).
+	3.3. Data Transformation:
+		Applying the same PCA transformation to the feature vectors of the validation and test sets.
+
+4. Classifier Training and Optimization - Selecting and training the model that will assign feature vectors to a specific artistic style.
+	4.1. Algorithm Selection:
+		Implementation of the SVM (Support Vector Machine) classifier using the scikit-learn library.
+	4.2. Model Training:
+		Training the classifier on the reduced feature vectors and labels from the training set.
+	4.3. Hyperparameter Optimization:
+		Using the validation set to tune model hyperparameters (e.g., C parameter and kernel type for SVM) using the Grid Search or Random Search method.
+	4.4. Final Model Selection: Saving the model with optimal hyperparameters.
+
+5. Evaluation and Stylistic Comparison - Assessment of the final algorithm performance and implementation of a comparative function.
+	5.1. Accuracy Evaluation: Performing classification on the test set and calculating metrics e.g.: Accuracy, Confusion Matrix, Precision and Recall for each class.
+	5.2. Implementation of Stylistic Comparison: Creating a function that:
+		Takes two images (or feature vectors).
+		Calculates the Euclidean (or Cosine) Distance between their reduced feature vectors.
+		Returns a numerical value as a measure of stylistic similarity.
+	5.3. Presentation of Results: Developing a report with visualizations (e.g., performance charts, examples of misclassifications, similarity rankings) etc.

@@ -1,19 +1,18 @@
 import pandas as pd
 import numpy as np
 import os
-import time
 from functools import partial
 from concurrent.futures import ProcessPoolExecutor
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-
+import joblib
 # Import twoich modułów
 import Functions
 import DataBase.Feature_extraction_functions as Fef
 
-from DataBase.DataBase_Functions import Custom_DataSet_Manager, LabelEncoderDF, Prepare_data_from_features
-from Config import DATABASE_FOLDER, DATASET_PATH, DATASET_NAME, FULL_DATASET_PATH, PROCESSED_DATA_PATH
+from DataBase.DataBase_Functions import Custom_DataSet_Manager, LabelEncoderDF
+from Config import DATASET_PATH, DATASET_NAME, FULL_DATASET_PATH
 from Config import TRAIN_SPLIT, VAL_SPLIT, TEST_SPLIT, RANDOM_STATE
 
 ###################################################################################
@@ -78,8 +77,8 @@ if __name__ == '__main__':
 
     manager = Custom_DataSet_Manager(DataSet_path = DATASET_PATH,
                                          train_split = TRAIN_SPLIT,
-                                         val_split = 0.1,
-                                         test_split = 0.1,
+                                         val_split = VAL_SPLIT,
+                                         test_split = TEST_SPLIT,
                                          random_state = RANDOM_STATE
                                          )
     
@@ -130,7 +129,7 @@ if __name__ == '__main__':
     # KROK 5: Label Encoding i Skalowanie
     ###################################################################################
     # Musimy zakodować stringi 'style' na inty
-    from DataBase.DataBase_Functions import LabelEncoderDF
+
     encoder = LabelEncoderDF()
     # Tworzymy DF tylko po to, żeby użyć Twojego encodera (lub zrób to ręcznie)
     temp_df = pd.DataFrame({'label': y_train_raw})
@@ -162,5 +161,5 @@ if __name__ == '__main__':
     )
 
     # Opcjonalnie: Zapisz wyniki
-    import joblib
+    
     joblib.dump(history, "models/group_rfe_results.pkl")

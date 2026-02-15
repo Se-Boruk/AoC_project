@@ -1,0 +1,71 @@
+#################################################################################################################
+Notatka zawiera schemat działania z 1 fazy projektu. 
+Są to wstępne założenia które później uległy zmianom i usprawnieniom.
+
+-----------------------------------------------------------------------------------------------------------------
+
+Tis note contains project scheme from it's 1st phase.
+These are initial assumptions and ideas which later changed and have been improved.
+#################################################################################################################
+
+Mamy w stworzyć w grupie program rozpoznający style obrazów.
+
+Hinty:
+  - Musimy sami znaleźć bazę danych. 
+  - Przejrzeć literaturę sprzed 10 lat. Wtedy robiono to bez użycia sieci. 
+  - Będzie raport do przygotowania, w formie artykułu naukowego.
+  - Użyć google schoolar (styler recognision, szukać w starszych pracach naukowych)
+  - Do naszego projektu z analizy obrazów dobrze jest wykorzystać filtr Gaussa do uzyskania rozkładu barw na obrazie.
+
+Co musi robić algorytm:
+  1. Ekstrakcja cech
+  2. Redukcja cech (PCA)
+  3. Klasyfikacja (SVM, KNN)
+
+Będą 3 prezentacje:
+	1. Przełom października i listopada (będzie jeszcze ustalone 5-10min, każdy z grupy musi coś mówić) 
+	2. Połowa grudnia 
+	3. Styczeń oddanie 
+
+Przy robieniu prezentacji:
+	1. Przedstawić bazę danych 
+	2. Podać cechy obrazów 
+	3. Czemu nasza baza jest lepsza od innych 
+
+Kryteria oceniania:
+	1. Prezentacja
+	2. Metody (Uzasadnienie ich wyboru)
+	3. Wyniki algorytmu (GUI nie jest obowiązkowe)
+
+
+-----------------------------------------------------------------------------------------------------------------
+
+We have to create a program in a group that recognizes image styles.
+
+Hints:
+	- We have to find the database ourselves.
+	- Review literature from 10 years ago. Back then, it was done without using networks.
+	- There will be a report to prepare, in the form of a scientific article.
+	- Use Google Scholar (style recognition, search in older scientific papers).
+	- For our image analysis project, it is good to use a Gaussian filter to obtain the color distribution on the image.
+
+What the algorithm must do:
+	- Feature extraction
+	- Feature reduction (PCA)
+	- Classification (SVM, KNN)
+
+There will be 3 presentations:
+	1. Turn of October and November (to be determined, 5-10 min, everyone in the group must speak)
+	2. Mid-December
+	3. January submission
+
+When making the presentation:
+	1. Present the database
+	2. Provide image features
+	3. Why our database is better than others
+
+Grading criteria:
+	1. Presentation
+	2. Methods (Justification of their choice)
+	3. Algorithm results (GUI is not mandatory)
+

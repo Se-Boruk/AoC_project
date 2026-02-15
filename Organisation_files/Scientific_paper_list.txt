@@ -1,0 +1,60 @@
+###########################################################################################################################################
+Ta notatka zawiera listą artukułów naukowych, które wybraliśmy jako fundament naszej pracy.
+Użyliśmy ich do porównania różnych metod analizy obrazów w kontekście naszego problemu (Rozpoznawanie stylu obrazów).
+
+-------------------------------------------------------------------------------------------------------------------------------------------
+
+This note contains the list of articles we have chosen as the main foundation of our work. 
+We used them to compare methods of image analysis in the scope of our problem (Paintings style recognition).
+###########################################################################################################################################
+
+[1] Saleh, B., i Elgammal, A. (2015). Large-scale class[1] 
+Saleh, B., & Elgammal, A. (2015). Large-scale classification 
+of fine-art paintings: Learning the right metric on the right feature. 
+https://doi.org/10.48550/arXiv.1505.00855 
+
+---------------------------------------------------------------------------
+ 
+[2] Zhao, W., Zhou, D., Qiu, X., & Jiang, W. (2021). 
+Compare the performance of the models in art classification. 
+PLoS ONE, 16(3), e0248414. 
+https://doi.org/10.1371/journal.pone.0248414 
+
+---------------------------------------------------------------------------
+ 
+[3] WikiArt Dataset, Kaggle Repository (user: steubk), 
+https://www.kaggle.com/datasets/steubk/wikiart 
+
+---------------------------------------------------------------------------
+ 
+[4] Karayev, S., Trentacoste, M., Han, H., Agarwala, A., 
+Darrell, T., Hertzmann, A., & Winnemoeller, H. (2014). Recognizing Image Style. 
+https://doi.org/10.48550/arXiv.1311.3715 
+
+---------------------------------------------------------------------------
+ 
+[5] Datta, R., Joshi, D., Li, J., & Wang, J. Z. (2006). 
+Studying Aesthetics in Photographic Images Using a Computational Approach. 
+https://doi.org/10.1007/11744078_23 
+
+---------------------------------------------------------------------------
+ 
+[6] Misumi, M., Orii, H., Sharmin, T., Mishima, K., & 
+Tsuruoka, T. (2016). Image classification for the painting style with SVM. 
+
+---------------------------------------------------------------------------
+ 
+[7] Hallur, S., & Gavade, A. (2025). Image Feature 
+Extraction Techniques: A Comprehensive Review. 
+https://www.researchgate.net/publication/395782910_Image_Feature_Extraction_Techniques_A_Comprehensive_Review 
+
+---------------------------------------------------------------------------
+ 
+[8] Kowaliw, T., McCormack, J., & Dorin, A. (2010). 
+Evolutionary Automated Recognition and Characterization of an Individual’s Artistic Style. 
+
+---------------------------------------------------------------------------
+ 
+[9] Mavridaki, E., & Mezaris, V. (2015). A comprehensive 
+aesthetic quality assessment method for natural images using basic rules of photography. 
+https://doi.org/10.1109/ICIP.2015.7350927 

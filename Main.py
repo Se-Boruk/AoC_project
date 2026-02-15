@@ -7,7 +7,6 @@ from comet_ml import Experiment
 import sys
 import os
 from sklearn.decomposition import PCA
-from sklearn.metrics import accuracy_score
 import pickle
 import joblib
 
@@ -28,9 +27,8 @@ from DataBase.DataBase_Functions import Custom_DataSet_Manager, LabelEncoderDF, 
 import Functions
 
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-import matplotlib.pyplot as plt
+
+
 
 if __name__ == '__main__':
     ###################################################################

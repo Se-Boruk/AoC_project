@@ -1,0 +1,6 @@
+Baza danych której użyliśmy
+Database we have used.
+
+
+https://www.kaggle.com/datasets/steubk/wikiart
+

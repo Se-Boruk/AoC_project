@@ -10,14 +10,12 @@ from sklearn.kernel_approximation import Nystroem
 from sklearn.pipeline import make_pipeline
 import Main
 from sklearn.multiclass import OneVsRestClassifier
-from Config import DATABASE_FOLDER, DATASET_PATH, DATASET_NAME, FULL_DATASET_PATH, PROCESSED_DATA_PATH
-import pickle
+
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import euclidean_distances
-import matplotlib.pyplot as plt
 from PIL import Image
 import time
-from sklearn.feature_selection import RFE, RFECV
+from sklearn.feature_selection import RFECV
 from sklearn.model_selection import cross_val_score
 from DataBase import Feature_extraction_functions as Fef
 import matplotlib.ticker as mtick
