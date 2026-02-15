@@ -30,7 +30,7 @@ Instead of using "black-box" AI, we used shallow learning to decode artistic sty
 These methods allows for good statisctical description of basic concepts, colors, objects which translate into the painting style.
 
 ## End Project pipeline (after initial experiments)
-- **Data Preprocessing**: Cleaning the WikiArt database and focusing on styles with enough data (over a 2.5% threshold).
+- **Data Preprocessing**: Preparing the WikiArt database to optimized format (.arrow) + resizing to 512x512 size. In some cases also filtering data to merge styles under a 2.5% threshold into single class
 
 - **Feature Extraction**: Running a parallel pipeline to extract features from images
 
