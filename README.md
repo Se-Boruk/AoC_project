@@ -71,11 +71,11 @@ The system identified the closest neighbours in this space to show which paintin
 To acces more information you can view the **report** or the **presentation** which are located in the **"Report"** folder
 
 ## Contributors
-**Sebastian Borukało**: Conceptualization, Methodology, Software, Validation, Formal Analysis, Investigation, Data Curation 
+**Sebastian Borukało (Se-Boruk)**: Conceptualization, Methodology, Software, Validation, Formal Analysis, Investigation, Data Curation 
 
-**Jakub Bukała**: Conceptualization, Methodology, Software, Validation, Formal Analysis, Investigation, Data Curation
+**Jakub Bukała (Kuba917)**: Conceptualization, Methodology, Software, Validation, Formal Analysis, Investigation, Data Curation
 
-**Jakub Smakowski**: Conceptualization, Methodology, Validation, Formal Analysis, Writing - Original Draft, Writing - Review & Editing, Visualization
+**Jakub Smakowski (CodeExplorerPL)**: Conceptualization, Methodology, Validation, Formal Analysis, Writing - Original Draft, Writing - Review & Editing, Visualization
 
 
 
